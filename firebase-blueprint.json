@@ -1,0 +1,32 @@
+{
+  "entities": {
+    "AppItem": {
+      "title": "App Item",
+      "description": "Represents an application entry in the design hub.",
+      "type": "object",
+      "properties": {
+        "id": { "type": "string", "description": "Unique identifier for the app." },
+        "name": { "type": "string", "description": "Name of the application." },
+        "mainUrl": { "type": "string", "description": "Primary URL of the application." },
+        "externalUrl": { "type": "string", "description": "Optional external workspace URL." },
+        "status": {
+          "type": "object",
+          "properties": {
+            "goal": { "type": "string" },
+            "status": { "type": "string" },
+            "next": { "type": "string" }
+          },
+          "required": ["goal", "status", "next"]
+        },
+        "createdAt": { "type": "string", "format": "date-time", "description": "When the app was added." }
+      },
+      "required": ["id", "name", "mainUrl", "status"]
+    }
+  },
+  "firestore": {
+    "/apps/{appId}": {
+      "schema": "AppItem",
+      "description": "Collection of applications shared across all users."
+    }
+  }
+}

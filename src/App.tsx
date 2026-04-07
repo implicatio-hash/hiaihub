@@ -1,6 +1,20 @@
 import React, { useState, useEffect, useRef } from 'react';
-import { Plus, X } from 'lucide-react';
+import { Plus, X, LogIn, LogOut, User } from 'lucide-react';
 import { motion, AnimatePresence } from 'motion/react';
+import { 
+  collection, 
+  onSnapshot, 
+  addDoc, 
+  deleteDoc, 
+  updateDoc, 
+  doc, 
+  query, 
+  orderBy, 
+  serverTimestamp,
+  getDocFromServer
+} from 'firebase/firestore';
+import { onAuthStateChanged, User as FirebaseUser } from 'firebase/auth';
+import { db, auth, signIn, handleFirestoreError, OperationType } from './firebase';
 
 interface AppStatus {
   goal: string;
@@ -14,33 +28,48 @@ interface AppItem {
   mainUrl: string;
   externalUrl?: string;
   status: AppStatus;
+  createdAt?: any;
 }
 
 export default function App() {
-  const [apps, setApps] = useState<AppItem[]>(() => {
-    try {
-      const saved = localStorage.getItem('ai-design-hub-apps');
-      if (saved !== null) {
-        const parsed = JSON.parse(saved);
-        if (Array.isArray(parsed)) return parsed;
-      }
-    } catch (e) {
-      console.error('Failed to load apps from localStorage:', e);
-    }
-    
-    // Initial Sample Data (Only if never saved before)
-    return [
-      {
-        id: 'sample-1',
-        name: 'app1',
-        mainUrl: 'https://google.com',
-        status: { goal: 'Sample Goal', status: 'In Progress', next: 'Finish UI' }
-      }
-    ];
-  });
+  const [apps, setApps] = useState<AppItem[]>([]);
+  const [user, setUser] = useState<FirebaseUser | null>(null);
+  const [isAuthReady, setIsAuthReady] = useState(false);
 
   useEffect(() => {
-    console.log('Design Hub mounted. Apps count:', apps.length);
+    const unsubscribe = onAuthStateChanged(auth, (user) => {
+      setUser(user);
+      setIsAuthReady(true);
+    });
+    return () => unsubscribe();
+  }, []);
+
+  useEffect(() => {
+    // Test connection
+    const testConnection = async () => {
+      try {
+        await getDocFromServer(doc(db, 'test', 'connection'));
+      } catch (error) {
+        if (error instanceof Error && error.message.includes('the client is offline')) {
+          console.error("Please check your Firebase configuration.");
+        }
+      }
+    };
+    testConnection();
+
+    // Real-time listener
+    const q = query(collection(db, 'apps'), orderBy('createdAt', 'desc'));
+    const unsubscribe = onSnapshot(q, (snapshot) => {
+      const appsData = snapshot.docs.map(doc => ({
+        ...doc.data(),
+        id: doc.id
+      })) as AppItem[];
+      setApps(appsData);
+    }, (error) => {
+      handleFirestoreError(error, OperationType.LIST, 'apps');
+    });
+
+    return () => unsubscribe();
   }, []);
 
   const [isAddModalOpen, setIsAddModalOpen] = useState(false);
@@ -55,16 +84,15 @@ export default function App() {
   const [editingField, setEditingField] = useState<'goal' | 'status' | 'next' | null>(null);
   const [editValue, setEditValue] = useState('');
 
-  useEffect(() => {
-    localStorage.setItem('ai-design-hub-apps', JSON.stringify(apps));
-  }, [apps]);
-
-  const handleAddApp = (e: React.FormEvent) => {
+  const handleAddApp = async (e: React.FormEvent) => {
     e.preventDefault();
     if (!newMainUrl) return;
+    if (!user) {
+      alert('Please login to add an app.');
+      return;
+    }
 
-    const newApp: AppItem = {
-      id: crypto.randomUUID(),
+    const newApp = {
       name: newName || `app${apps.length + 1}`,
       mainUrl: newMainUrl.startsWith('http') ? newMainUrl : `https://${newMainUrl}`,
       externalUrl: newExternalUrl ? (newExternalUrl.startsWith('http') ? newExternalUrl : `https://${newExternalUrl}`) : undefined,
@@ -72,31 +100,75 @@ export default function App() {
         goal: 'Set your goal here',
         status: 'Current progress',
         next: 'Next steps',
-      }
+      },
+      createdAt: serverTimestamp(),
+      authorUid: user.uid
     };
 
-    setApps([...apps, newApp]);
-    setIsAddModalOpen(false);
-    setNewName('');
-    setNewMainUrl('');
-    setNewExternalUrl('');
+    try {
+      await addDoc(collection(db, 'apps'), newApp);
+      setIsAddModalOpen(false);
+      setNewName('');
+      setNewMainUrl('');
+      setNewExternalUrl('');
+    } catch (error) {
+      handleFirestoreError(error, OperationType.CREATE, 'apps');
+    }
   };
 
-  const handleDeleteApp = (id: string) => {
-    setApps(apps.filter(app => app.id !== id));
+  const handleDeleteApp = async (id: string) => {
+    if (!user) return;
+    try {
+      await deleteDoc(doc(db, 'apps', id));
+    } catch (error) {
+      handleFirestoreError(error, OperationType.DELETE, `apps/${id}`);
+    }
   };
 
-  const handleUpdateStatus = (id: string, field: keyof AppStatus, value: string) => {
-    setApps(apps.map(app => 
-      app.id === id ? { ...app, status: { ...app.status, [field]: value } } : app
-    ));
-    setEditingField(null);
+  const handleUpdateStatus = async (id: string, field: keyof AppStatus, value: string) => {
+    if (!user) return;
+    try {
+      const appRef = doc(db, 'apps', id);
+      await updateDoc(appRef, {
+        [`status.${field}`]: value
+      });
+      setEditingField(null);
+    } catch (error) {
+      handleFirestoreError(error, OperationType.UPDATE, `apps/${id}`);
+    }
   };
 
   const selectedApp = apps.find(app => app.id === statusModalAppId);
 
   return (
     <div className="min-h-screen bg-[#EEEEEE] p-8 font-pretendard text-[#6F6F6F]">
+      {/* Auth Bar */}
+      <div className="max-w-5xl mx-auto flex justify-end mb-4">
+        {isAuthReady && (
+          user ? (
+            <div className="flex items-center gap-3 bg-white/40 p-2 rounded-full px-4 border border-white/20">
+              {user.photoURL ? (
+                <img src={user.photoURL} alt={user.displayName || ''} className="w-6 h-6 rounded-full" referrerPolicy="no-referrer" />
+              ) : (
+                <User className="w-4 h-4" />
+              )}
+              <span className="text-xs font-medium">{user.displayName}</span>
+              <button onClick={() => auth.signOut()} className="text-xs text-red-400 hover:text-red-600 transition-colors">
+                <LogOut className="w-4 h-4" />
+              </button>
+            </div>
+          ) : (
+            <button 
+              onClick={signIn}
+              className="flex items-center gap-2 bg-[#001F3F] text-white p-2 rounded-full px-4 text-xs font-bold hover:bg-opacity-90 transition-all"
+            >
+              <LogIn className="w-4 h-4" />
+              Login to Share
+            </button>
+          )
+        )}
+      </div>
+
       {/* Header */}
       <header className="max-w-4xl mx-auto mb-16 mt-8">
         <h1 className="text-2xl md:text-3xl text-center leading-tight font-nunito italic font-bold text-[#001F3F]">

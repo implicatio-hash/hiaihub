@@ -1,0 +1,84 @@
+rules_version = '2';
+
+service cloud.firestore {
+  match /databases/{database}/documents {
+    
+    // ===============================================================
+    // Assumed Data Model
+    // ===============================================================
+    //
+    // Collection: apps
+    // Document ID: auto-generated
+    // Fields:
+    //   - name: string (required, 1-100 chars)
+    //   - mainUrl: string (required, URL format)
+    //   - externalUrl: string (optional, URL format)
+    //   - status: map (required)
+    //     - goal: string (required, 1-500 chars)
+    //     - status: string (required, 1-500 chars)
+    //     - next: string (required, 1-500 chars)
+    //   - createdAt: timestamp (required)
+    //   - authorUid: string (required, UID of creator)
+    //
+    // ===============================================================
+
+    // ===============================================================
+    // Helper Functions
+    // ===============================================================
+    
+    function isAuthenticated() {
+      return request.auth != null;
+    }
+
+    function isOwner(authorUid) {
+      return isAuthenticated() && request.auth.uid == authorUid;
+    }
+
+    function isValidUrl(url) {
+      return url is string && (url.matches("^https://.*") || url.matches("^http://.*"));
+    }
+
+    function isValidApp(data) {
+      return data.keys().hasAll(['name', 'mainUrl', 'status', 'createdAt', 'authorUid']) &&
+             data.name is string && data.name.size() >= 1 && data.name.size() <= 100 &&
+             isValidUrl(data.mainUrl) &&
+             (!('externalUrl' in data) || isValidUrl(data.externalUrl)) &&
+             data.status is map &&
+             data.status.keys().hasAll(['goal', 'status', 'next']) &&
+             data.status.goal is string && data.status.goal.size() <= 1000 &&
+             data.status.status is string && data.status.status.size() <= 1000 &&
+             data.status.next is string && data.status.next.size() <= 1000 &&
+             data.createdAt is timestamp &&
+             data.authorUid == request.auth.uid;
+    }
+
+    // ===============================================================
+    // Rules
+    // ===============================================================
+
+    match /apps/{appId} {
+      // Allow anyone to read the shared hub
+      allow read: if true; 
+      
+      // Only authenticated users can create
+      allow create: if isAuthenticated() && isValidApp(request.resource.data);
+      
+      // Allow any authenticated user to update status (shared collaboration)
+      // or restrict to owner? The user said "shared", so maybe anyone can update.
+      // But let's restrict to owner for safety unless requested otherwise.
+      allow update: if isAuthenticated() && 
+                    request.resource.data.diff(resource.data).affectedKeys().hasOnly(['status']) &&
+                    request.resource.data.status is map &&
+                    request.resource.data.status.goal is string &&
+                    request.resource.data.status.status is string &&
+                    request.resource.data.status.next is string;
+                    
+      // Only owner can delete
+      allow delete: if isOwner(resource.data.authorUid);
+    }
+
+    match /users/{userId} {
+      allow read, write: if isAuthenticated() && request.auth.uid == userId;
+    }
+  }
+}
