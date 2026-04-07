@@ -106,7 +106,7 @@ export default function App() {
       </header>
 
       {/* App Grid */}
-      <main className="max-w-4xl mx-auto grid grid-cols-4 sm:grid-cols-6 md:grid-cols-8 lg:grid-cols-10 gap-x-4 gap-y-10">
+      <main className="max-w-5xl mx-auto flex flex-wrap justify-center gap-x-8 gap-y-12">
         {apps.map((app) => (
           <AppCard 
             key={app.id} 
@@ -117,14 +117,14 @@ export default function App() {
         ))}
 
         {/* Add Button Card */}
-        <div className="flex flex-col items-center gap-1">
-          <span className="text-[10px] opacity-0">spacer</span>
+        <div className="flex flex-col items-center gap-2 w-16">
           <button 
             onClick={() => setIsAddModalOpen(true)}
             className="w-12 h-12 neumorph-card rounded-xl flex items-center justify-center hover:neumorph-inset transition-all group"
           >
             <Plus className="w-5 h-5 group-hover:scale-110 transition-transform text-[#001F3F]" />
           </button>
+          <span className="text-[10px] opacity-0 select-none">spacer</span>
         </div>
       </main>
 
@@ -262,8 +262,7 @@ const AppCard: React.FC<AppCardProps> = ({ app, onDelete, onShowStatus }) => {
   ];
 
   return (
-    <div className="flex flex-col items-center gap-2 relative w-full">
-      <span className="text-[10px] text-gray-400 font-normal w-full text-center break-words leading-tight">{app.name}</span>
+    <div className="flex flex-col items-center gap-2 relative w-16">
       <div 
         className="relative w-12 h-12"
         onMouseEnter={() => setIsHovered(true)}
@@ -319,6 +318,7 @@ const AppCard: React.FC<AppCardProps> = ({ app, onDelete, onShowStatus }) => {
           )}
         </AnimatePresence>
       </div>
+      <span className="text-[10px] text-gray-400 font-normal w-full text-center break-words leading-tight">{app.name}</span>
     </div>
   );
 };
