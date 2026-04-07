@@ -118,13 +118,15 @@ export default function App() {
 
         {/* Add Button Card */}
         <div className="flex flex-col items-center gap-2 w-16">
+          <div className="h-8 flex items-end justify-center w-full">
+            <span className="text-[10px] opacity-0 select-none">spacer</span>
+          </div>
           <button 
             onClick={() => setIsAddModalOpen(true)}
             className="w-12 h-12 neumorph-card rounded-xl flex items-center justify-center hover:neumorph-inset transition-all group"
           >
             <Plus className="w-5 h-5 group-hover:scale-110 transition-transform text-[#001F3F]" />
           </button>
-          <span className="text-[10px] opacity-0 select-none">spacer</span>
         </div>
       </main>
 
@@ -263,6 +265,11 @@ const AppCard: React.FC<AppCardProps> = ({ app, onDelete, onShowStatus }) => {
 
   return (
     <div className="flex flex-col items-center gap-2 relative w-16">
+      <div className="h-8 flex items-end justify-center w-full">
+        <span className="text-[10px] text-gray-400 font-normal w-full text-center break-words leading-tight">
+          {app.name}
+        </span>
+      </div>
       <div 
         className="relative w-12 h-12"
         onMouseEnter={() => setIsHovered(true)}
@@ -318,7 +325,6 @@ const AppCard: React.FC<AppCardProps> = ({ app, onDelete, onShowStatus }) => {
           )}
         </AnimatePresence>
       </div>
-      <span className="text-[10px] text-gray-400 font-normal w-full text-center break-words leading-tight">{app.name}</span>
     </div>
   );
 };
