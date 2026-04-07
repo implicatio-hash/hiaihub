@@ -126,7 +126,7 @@ export default function App() {
     <div className="min-h-screen bg-[#EEEEEE] p-8 font-pretendard text-[#6F6F6F]">
       {/* Header */}
       <header className="max-w-4xl mx-auto mb-16 mt-8">
-        <h1 className="text-2xl md:text-3xl text-center leading-tight font-nunito italic font-bold text-[#001F3F]">
+        <h1 className="text-2xl md:text-3xl text-center leading-tight font-nunito [font-style:oblique_20deg] font-bold text-[#001F3F]">
           hospitality <span className="text-[#20A200]">&</span> interior dept.<br />
           <span className="text-[#20A200]">AI</span> design hub
         </h1>
