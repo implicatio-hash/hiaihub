@@ -262,8 +262,8 @@ const AppCard: React.FC<AppCardProps> = ({ app, onDelete, onShowStatus }) => {
   ];
 
   return (
-    <div className="flex flex-col items-center gap-1 relative w-full">
-      <span className="text-[10px] text-gray-400 font-normal truncate w-full text-center">{app.name}</span>
+    <div className="flex flex-col items-center gap-2 relative w-full">
+      <span className="text-[10px] text-gray-400 font-normal w-full text-center break-words leading-tight">{app.name}</span>
       <div 
         className="relative w-12 h-12"
         onMouseEnter={() => setIsHovered(true)}
