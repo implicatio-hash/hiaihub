@@ -57,24 +57,8 @@ service cloud.firestore {
     // ===============================================================
 
     match /apps/{appId} {
-      // Allow anyone to read the shared hub
-      allow read: if true; 
-      
-      // Only authenticated users can create
-      allow create: if isAuthenticated() && isValidApp(request.resource.data);
-      
-      // Allow any authenticated user to update status (shared collaboration)
-      // or restrict to owner? The user said "shared", so maybe anyone can update.
-      // But let's restrict to owner for safety unless requested otherwise.
-      allow update: if isAuthenticated() && 
-                    request.resource.data.diff(resource.data).affectedKeys().hasOnly(['status']) &&
-                    request.resource.data.status is map &&
-                    request.resource.data.status.goal is string &&
-                    request.resource.data.status.status is string &&
-                    request.resource.data.status.next is string;
-                    
-      // Only owner can delete
-      allow delete: if isOwner(resource.data.authorUid);
+      // Allow anyone to read, create, update, and delete for public collaboration
+      allow read, create, update, delete: if true;
     }
 
     match /users/{userId} {
