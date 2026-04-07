@@ -101,7 +101,7 @@ export default function App() {
       <header className="max-w-4xl mx-auto mb-16 mt-8">
         <h1 className="text-2xl md:text-3xl text-center leading-tight font-nunito italic font-bold text-[#001F3F]">
           hospitality <span className="text-[#20A200]">&</span> interior dept.<br />
-          design hub
+          <span className="text-[#20A200]">AI</span> design hub
         </h1>
       </header>
 
