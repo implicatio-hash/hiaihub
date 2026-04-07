@@ -20,15 +20,15 @@ export default function App() {
   const [apps, setApps] = useState<AppItem[]>(() => {
     try {
       const saved = localStorage.getItem('ai-design-hub-apps');
-      if (saved) {
+      if (saved !== null) {
         const parsed = JSON.parse(saved);
-        if (Array.isArray(parsed) && parsed.length > 0) return parsed;
+        if (Array.isArray(parsed)) return parsed;
       }
     } catch (e) {
       console.error('Failed to load apps from localStorage:', e);
     }
     
-    // Initial Sample Data
+    // Initial Sample Data (Only if never saved before)
     return [
       {
         id: 'sample-1',
@@ -131,7 +131,7 @@ export default function App() {
       {/* Add App Modal */}
       <AnimatePresence>
         {isAddModalOpen && (
-          <Modal onClose={() => setIsAddModalOpen(false)}>
+          <Modal onClose={() => setIsAddModalOpen(false)} glass={true}>
             <div className="p-6">
               <h2 className="text-lg mb-6 font-bold text-[#001F3F]">Add New App</h2>
               <form onSubmit={handleAddApp} className="space-y-4">
