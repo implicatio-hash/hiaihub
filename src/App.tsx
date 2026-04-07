@@ -211,8 +211,8 @@ export default function App() {
       <AnimatePresence>
         {selectedApp && (
           <Modal onClose={() => setStatusModalAppId(null)} glass={true} disableOutsideClick={true}>
-            <div className="p-8 min-w-[300px] md:min-w-[500px]">
-              <div className="mb-8">
+            <div className="p-8 min-w-[300px] md:min-w-[500px] max-h-[80vh] overflow-y-auto custom-scrollbar">
+              <div className="mb-8 sticky top-0 bg-transparent backdrop-blur-sm z-10 py-2 -mt-2">
                 <h2 className="text-lg font-bold text-[#001F3F]">Current Status</h2>
               </div>
               
@@ -226,8 +226,7 @@ export default function App() {
                           autoFocus
                           value={editValue}
                           onChange={(e) => setEditValue(e.target.value)}
-                          rows={3}
-                          className="w-full p-2 text-sm bg-white/60 rounded-lg focus:outline-none border border-white/20 resize-none"
+                          className="w-full p-3 text-sm bg-white/60 rounded-lg focus:outline-none border border-white/20 min-h-[150px] resize-y custom-scrollbar"
                           onKeyDown={(e) => {
                             if (e.key === 'Escape') setEditingField(null);
                           }}
