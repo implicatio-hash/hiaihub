@@ -185,13 +185,13 @@ export default function App() {
         {selectedApp && (
           <Modal onClose={() => setStatusModalAppId(null)} glass={true} disableOutsideClick={true}>
             <div className="p-8 min-w-[300px] md:min-w-[500px]">
-              <div className="flex items-center justify-between mb-8">
+              <div className="mb-8">
                 <h2 className="text-lg font-bold text-[#001F3F]">Current Status</h2>
               </div>
               
               <div className="space-y-6">
                 {(['goal', 'status', 'next'] as const).map((field) => (
-                  <div key={field} className="ml-4">
+                  <div key={field}>
                     <h3 className="text-xs mb-1 font-medium capitalize text-[#6F6F6F]">{field}</h3>
                     {editingField === field ? (
                       <div className="space-y-2">
@@ -202,10 +202,6 @@ export default function App() {
                           rows={3}
                           className="w-full p-2 text-sm bg-white/60 rounded-lg focus:outline-none border border-white/20 resize-none"
                           onKeyDown={(e) => {
-                            if (e.key === 'Enter' && !e.shiftKey) {
-                              e.preventDefault();
-                              handleUpdateStatus(selectedApp.id, field, editValue);
-                            }
                             if (e.key === 'Escape') setEditingField(null);
                           }}
                         />
@@ -225,13 +221,15 @@ export default function App() {
                         </div>
                       </div>
                     ) : (
-                      <div className="flex items-start justify-between group">
+                      <div 
+                        className="flex items-start justify-between group bg-white/60 rounded-lg p-2 border border-white/10 cursor-pointer hover:bg-white/80 transition-colors"
+                        onClick={() => {
+                          setEditingField(field);
+                          setEditValue(selectedApp.status[field]);
+                        }}
+                      >
                         <p className="text-gray-600 font-normal text-sm whitespace-pre-wrap flex-1">{selectedApp.status[field]}</p>
                         <button 
-                          onClick={() => {
-                            setEditingField(field);
-                            setEditValue(selectedApp.status[field]);
-                          }}
                           className="text-[10px] text-gray-400 hover:text-[#001F3F] ml-4 opacity-0 group-hover:opacity-100 transition-opacity"
                         >
                           Edit
