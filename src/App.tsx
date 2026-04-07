@@ -142,7 +142,7 @@ export default function App() {
                     value={newName}
                     onChange={(e) => setNewName(e.target.value)}
                     placeholder="e.g. app1"
-                    className="w-full p-2 text-sm neumorph-inset rounded-lg focus:outline-none"
+                    className="w-full p-2 text-sm bg-white/60 rounded-lg focus:outline-none border border-white/20"
                   />
                 </div>
                 <div>
@@ -153,7 +153,7 @@ export default function App() {
                     value={newMainUrl}
                     onChange={(e) => setNewMainUrl(e.target.value)}
                     placeholder="https://..."
-                    className="w-full p-2 text-sm neumorph-inset rounded-lg focus:outline-none"
+                    className="w-full p-2 text-sm bg-white/60 rounded-lg focus:outline-none border border-white/20"
                   />
                 </div>
                 <div>
@@ -163,12 +163,12 @@ export default function App() {
                     value={newExternalUrl}
                     onChange={(e) => setNewExternalUrl(e.target.value)}
                     placeholder="https://..."
-                    className="w-full p-2 text-sm neumorph-inset rounded-lg focus:outline-none"
+                    className="w-full p-2 text-sm bg-white/60 rounded-lg focus:outline-none border border-white/20"
                   />
                 </div>
                 <button 
                   type="submit"
-                  className="w-full py-2 bg-[#001F3F] text-white rounded-lg hover:bg-opacity-90 transition-colors mt-4 text-sm font-bold"
+                  className="w-full py-2 bg-[#6F6F6F] text-white rounded-lg hover:bg-opacity-90 transition-colors mt-4 text-sm font-bold"
                 >
                   Create App
                 </button>
