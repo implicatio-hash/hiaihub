@@ -192,36 +192,41 @@ export default function App() {
               <div className="space-y-6">
                 {(['goal', 'status', 'next'] as const).map((field) => (
                   <div key={field} className="ml-4">
-                    <h3 className="text-sm font-bold capitalize mb-1 text-[#001F3F]">{field}</h3>
+                    <h3 className="text-xs mb-1 font-medium capitalize text-[#6F6F6F]">{field}</h3>
                     {editingField === field ? (
-                      <div className="flex gap-3 items-center">
-                        <input 
+                      <div className="space-y-2">
+                        <textarea 
                           autoFocus
-                          type="text"
                           value={editValue}
                           onChange={(e) => setEditValue(e.target.value)}
-                          className="flex-1 p-1 text-sm border-b border-[#001F3F] focus:outline-none bg-transparent"
+                          rows={3}
+                          className="w-full p-2 text-sm bg-white/60 rounded-lg focus:outline-none border border-white/20 resize-none"
                           onKeyDown={(e) => {
-                            if (e.key === 'Enter') handleUpdateStatus(selectedApp.id, field, editValue);
+                            if (e.key === 'Enter' && !e.shiftKey) {
+                              e.preventDefault();
+                              handleUpdateStatus(selectedApp.id, field, editValue);
+                            }
                             if (e.key === 'Escape') setEditingField(null);
                           }}
                         />
-                        <button 
-                          onClick={() => handleUpdateStatus(selectedApp.id, field, editValue)}
-                          className="text-xs text-[#20A200] hover:underline"
-                        >
-                          Save
-                        </button>
-                        <button 
-                          onClick={() => setEditingField(null)}
-                          className="text-xs text-gray-400 hover:underline"
-                        >
-                          Cancel
-                        </button>
+                        <div className="flex justify-end gap-2">
+                          <button 
+                            onClick={() => setEditingField(null)}
+                            className="text-xs text-gray-400 hover:underline"
+                          >
+                            Cancel
+                          </button>
+                          <button 
+                            onClick={() => handleUpdateStatus(selectedApp.id, field, editValue)}
+                            className="text-xs text-[#20A200] font-bold hover:underline"
+                          >
+                            Save
+                          </button>
+                        </div>
                       </div>
                     ) : (
                       <div className="flex items-start justify-between group">
-                        <p className="text-gray-600 font-normal text-sm">{selectedApp.status[field]}</p>
+                        <p className="text-gray-600 font-normal text-sm whitespace-pre-wrap flex-1">{selectedApp.status[field]}</p>
                         <button 
                           onClick={() => {
                             setEditingField(field);
