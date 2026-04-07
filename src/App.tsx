@@ -18,9 +18,30 @@ interface AppItem {
 
 export default function App() {
   const [apps, setApps] = useState<AppItem[]>(() => {
-    const saved = localStorage.getItem('ai-design-hub-apps');
-    return saved ? JSON.parse(saved) : [];
+    try {
+      const saved = localStorage.getItem('ai-design-hub-apps');
+      if (saved) {
+        const parsed = JSON.parse(saved);
+        if (Array.isArray(parsed) && parsed.length > 0) return parsed;
+      }
+    } catch (e) {
+      console.error('Failed to load apps from localStorage:', e);
+    }
+    
+    // Initial Sample Data
+    return [
+      {
+        id: 'sample-1',
+        name: 'app1',
+        mainUrl: 'https://google.com',
+        status: { goal: 'Sample Goal', status: 'In Progress', next: 'Finish UI' }
+      }
+    ];
   });
+
+  useEffect(() => {
+    console.log('Design Hub mounted. Apps count:', apps.length);
+  }, []);
 
   const [isAddModalOpen, setIsAddModalOpen] = useState(false);
   const [statusModalAppId, setStatusModalAppId] = useState<string | null>(null);
@@ -80,7 +101,7 @@ export default function App() {
       <header className="max-w-4xl mx-auto mb-16 mt-8">
         <h1 className="text-2xl md:text-3xl text-center leading-tight font-nunito italic font-bold text-[#001F3F]">
           hospitality <span className="text-[#20A200]">&</span> interior dept.<br />
-          <span className="text-[#20A200]">AI</span> design hub
+          design hub
         </h1>
       </header>
 
@@ -162,7 +183,9 @@ export default function App() {
         {selectedApp && (
           <Modal onClose={() => setStatusModalAppId(null)} glass={true} disableOutsideClick={true}>
             <div className="p-8 min-w-[300px] md:min-w-[500px]">
-              <h2 className="text-lg mb-8 font-bold text-[#001F3F]">Current Status</h2>
+              <div className="flex items-center justify-between mb-8">
+                <h2 className="text-lg font-bold text-[#001F3F]">Current Status</h2>
+              </div>
               
               <div className="space-y-6">
                 {(['goal', 'status', 'next'] as const).map((field) => (
