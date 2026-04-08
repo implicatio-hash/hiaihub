@@ -1,5 +1,5 @@
 import React, { useState, useEffect, useRef } from 'react';
-import { Plus, X } from 'lucide-react';
+import { Plus, X, LogIn, LogOut } from 'lucide-react';
 import { motion, AnimatePresence } from 'motion/react';
 import { 
   collection, 
@@ -13,7 +13,8 @@ import {
   serverTimestamp,
   getDocFromServer
 } from 'firebase/firestore';
-import { db, handleFirestoreError, OperationType } from './firebase';
+import { onAuthStateChanged, User, signOut } from 'firebase/auth';
+import { db, auth, signIn, handleFirestoreError, OperationType } from './firebase';
 
 interface AppStatus {
   goal: string;
@@ -32,6 +33,16 @@ interface AppItem {
 
 export default function App() {
   const [apps, setApps] = useState<AppItem[]>([]);
+  const [user, setUser] = useState<User | null>(null);
+  const [isAuthReady, setIsAuthReady] = useState(false);
+
+  useEffect(() => {
+    const unsubAuth = onAuthStateChanged(auth, (u) => {
+      setUser(u);
+      setIsAuthReady(true);
+    });
+    return () => unsubAuth();
+  }, []);
 
   useEffect(() => {
     // Test connection
@@ -47,7 +58,7 @@ export default function App() {
     testConnection();
 
     // Real-time listener
-    const q = query(collection(db, 'apps'), orderBy('createdAt', 'desc'));
+    const q = query(collection(db, 'apps'), orderBy('createdAt', 'asc'));
     const unsubscribe = onSnapshot(q, (snapshot) => {
       const appsData = snapshot.docs.map(doc => ({
         ...doc.data(),
@@ -62,43 +73,80 @@ export default function App() {
   }, []);
 
   const [isAddModalOpen, setIsAddModalOpen] = useState(false);
+  const [editingAppId, setEditingAppId] = useState<string | null>(null);
   const [statusModalAppId, setStatusModalAppId] = useState<string | null>(null);
+  const [isSubmitting, setIsSubmitting] = useState(false);
+  const [submitError, setSubmitError] = useState<string | null>(null);
   
-  // Add Modal State
+  // Add/Edit Modal State
   const [newName, setNewName] = useState('');
   const [newMainUrl, setNewMainUrl] = useState('');
   const [newExternalUrl, setNewExternalUrl] = useState('');
 
-  // Status Modal Edit State
-  const [editingField, setEditingField] = useState<'goal' | 'status' | 'next' | null>(null);
-  const [editValue, setEditValue] = useState('');
+  const openAddModal = () => {
+    setEditingAppId(null);
+    setNewName('');
+    setNewMainUrl('');
+    setNewExternalUrl('');
+    setIsAddModalOpen(true);
+  };
+
+  const openEditModal = (app: AppItem) => {
+    setEditingAppId(app.id);
+    setNewName(app.name);
+    setNewMainUrl(app.mainUrl);
+    setNewExternalUrl(app.externalUrl || '');
+    setIsAddModalOpen(true);
+  };
 
   const handleAddApp = async (e: React.FormEvent) => {
     e.preventDefault();
     if (!newMainUrl) return;
 
-    const newApp = {
-      name: newName || `app${apps.length + 1}`,
-      mainUrl: newMainUrl.startsWith('http') ? newMainUrl : `https://${newMainUrl}`,
-      externalUrl: newExternalUrl ? (newExternalUrl.startsWith('http') ? newExternalUrl : `https://${newExternalUrl}`) : undefined,
-      status: {
-        goal: 'Set your goal here',
-        status: 'Current progress',
-        next: 'Next steps',
-      },
-      createdAt: serverTimestamp()
-    };
+    setIsSubmitting(true);
+    setSubmitError(null);
 
     try {
-      await addDoc(collection(db, 'apps'), newApp);
+      const appData: any = {
+        name: newName || `app${apps.length + 1}`,
+        mainUrl: newMainUrl.startsWith('http') ? newMainUrl : `https://${newMainUrl}`,
+        createdAt: serverTimestamp(),
+        authorUid: auth.currentUser?.uid || 'anonymous'
+      };
+
+      if (newExternalUrl) {
+        appData.externalUrl = newExternalUrl.startsWith('http') ? newExternalUrl : `https://${newExternalUrl}`;
+      }
+
+      if (editingAppId) {
+        // Update existing app
+        await updateDoc(doc(db, 'apps', editingAppId), appData);
+      } else {
+        // Create new app
+        appData.status = {
+          goal: 'Set your goal here',
+          status: 'Current progress',
+          next: 'Next steps',
+        };
+        await addDoc(collection(db, 'apps'), appData);
+      }
+
       setIsAddModalOpen(false);
       setNewName('');
       setNewMainUrl('');
       setNewExternalUrl('');
+      setEditingAppId(null);
     } catch (error) {
-      handleFirestoreError(error, OperationType.CREATE, 'apps');
+      console.error("Error saving app:", error);
+      setSubmitError(error instanceof Error ? error.message : "Failed to save app");
+    } finally {
+      setIsSubmitting(false);
     }
   };
+
+  // Status Modal Edit State
+  const [editingField, setEditingField] = useState<'goal' | 'status' | 'next' | null>(null);
+  const [editValue, setEditValue] = useState('');
 
   const handleDeleteApp = async (id: string) => {
     try {
@@ -123,83 +171,152 @@ export default function App() {
   const selectedApp = apps.find(app => app.id === statusModalAppId);
 
   return (
-    <div className="min-h-screen bg-[#EEEEEE] p-8 font-pretendard text-[#6F6F6F]">
+    <div className="min-h-screen bg-[#EEEEEE] p-8 font-pretendard text-[#6F6F6F] relative">
+      {/* Auth Button */}
+      <div className="absolute top-4 right-4 z-20">
+        {user ? (
+          <div className="flex items-center gap-3 bg-white/40 backdrop-blur-sm p-1.5 pr-3 rounded-full border border-white/20 shadow-sm">
+            {user.photoURL && (
+              <img src={user.photoURL} alt={user.displayName || ''} className="w-7 h-7 rounded-full shadow-inner" referrerPolicy="no-referrer" />
+            )}
+            <span className="text-[10px] font-medium text-[#3B3B3B] hidden md:block">{user.displayName}</span>
+            <button 
+              onClick={() => signOut(auth)}
+              className="p-1.5 hover:bg-black/5 rounded-full transition-colors text-gray-500"
+              title="Sign Out"
+            >
+              <LogOut className="w-3.5 h-3.5" />
+            </button>
+          </div>
+        ) : (
+          <button 
+            onClick={signIn}
+            className="flex items-center gap-2 bg-white/40 backdrop-blur-sm px-4 py-2 rounded-full border border-white/20 shadow-sm hover:bg-white/60 transition-all text-xs font-medium text-[#3B3B3B]"
+          >
+            <LogIn className="w-3.5 h-3.5" />
+            Sign In
+          </button>
+        )}
+      </div>
+
       {/* Header */}
       <header className="max-w-4xl mx-auto mb-16 mt-8">
-        <h1 className="text-2xl md:text-3xl text-center leading-tight font-nunito font-bold text-[#001F3F] [-webkit-transform:skewX(-17deg)] [transform:skewX(-17deg)] inline-block w-full">
+        <h1 className="text-2xl md:text-3xl text-center leading-tight font-nunito font-bold italic text-[#3B3B3B] inline-block w-full">
           hospitality <span className="text-[#20A200]">&</span> interior dept.<br />
           <span className="text-[#20A200]">AI</span> design hub
         </h1>
       </header>
 
       {/* App Grid */}
-      <main className="max-w-5xl mx-auto flex flex-wrap justify-center gap-x-8 gap-y-12">
-        {apps.map((app) => (
-          <AppCard 
-            key={app.id} 
-            app={app} 
-            onDelete={() => handleDeleteApp(app.id)}
-            onShowStatus={() => setStatusModalAppId(app.id)}
-          />
-        ))}
+      <main className="mx-auto grid grid-cols-[repeat(3,auto)] md:grid-cols-[repeat(6,auto)] gap-x-6 gap-y-12 justify-center w-fit">
+        <AnimatePresence>
+          {apps.map((app) => (
+            <AppCard 
+              key={app.id} 
+              app={app} 
+              onDelete={() => handleDeleteApp(app.id)}
+              onShowStatus={() => setStatusModalAppId(app.id)}
+              onEdit={() => openEditModal(app)}
+            />
+          ))}
 
-        {/* Add Button Card */}
-        <div className="flex flex-col items-center gap-2 w-16">
-          <div className="h-8 flex items-end justify-center w-full">
-            <span className="text-[10px] opacity-0 select-none">spacer</span>
-          </div>
-          <button 
-            onClick={() => setIsAddModalOpen(true)}
-            className="w-12 h-12 neumorph-card rounded-xl flex items-center justify-center hover:neumorph-inset transition-all group"
+          {/* Add Button Card inside AnimatePresence for layout sync */}
+          <motion.div 
+            key="add-button"
+            layout
+            transition={{
+              layout: {
+                duration: 0.3,
+                ease: "easeInOut"
+              }
+            }}
+            className="flex flex-col items-center gap-6 w-20 shrink-0"
           >
-            <Plus className="w-5 h-5 group-hover:scale-110 transition-transform text-[#001F3F]" />
-          </button>
-        </div>
+            <div className="h-10 flex items-end justify-center w-full">
+              <span className="text-[10px] opacity-0 select-none tracking-widest w-full text-center uppercase">
+                spacer
+              </span>
+            </div>
+            <div className="relative">
+              <button 
+                onClick={openAddModal}
+                className="w-12 h-12 neumorph-card rounded-xl flex items-center justify-center hover:neumorph-inset transition-all group"
+              >
+                <Plus className="w-5 h-5 group-hover:scale-110 transition-transform text-[#3B3B3B]" />
+              </button>
+            </div>
+          </motion.div>
+        </AnimatePresence>
       </main>
 
       {/* Add App Modal */}
       <AnimatePresence>
         {isAddModalOpen && (
-          <Modal onClose={() => setIsAddModalOpen(false)} glass={true}>
+          <Modal 
+            onClose={() => {
+              setIsAddModalOpen(false);
+              setSubmitError(null);
+            }} 
+            glass={true} 
+            disableOutsideClick={true}
+          >
             <div className="p-6">
-              <h2 className="text-lg mb-6 font-bold text-[#001F3F]">Add New App</h2>
+              <h2 className="text-lg mb-6 font-bold text-[#3B3B3B] uppercase">
+                {editingAppId ? 'EDIT DETAILS' : 'ADD NEW APP'}
+              </h2>
+              
+              {submitError && (
+                <div className="mb-4 p-3 bg-red-50 border border-red-100 text-red-600 text-xs rounded-lg">
+                  {submitError}
+                </div>
+              )}
+
               <form onSubmit={handleAddApp} className="space-y-4">
                 <div>
-                  <label className="block text-xs mb-1 font-medium">App Name</label>
+                  <label className="block text-xs mb-1 font-medium text-[#3B3B3B]">App Name</label>
                   <input 
                     type="text" 
+                    disabled={isSubmitting}
                     value={newName}
                     onChange={(e) => setNewName(e.target.value)}
                     placeholder="e.g. app1"
-                    className="w-full p-2 text-sm bg-white/60 rounded-lg focus:outline-none border border-white/20"
+                    className="w-full p-2 text-sm bg-white/60 rounded-lg focus:outline-none border border-white/20 text-[#3B3B3B] disabled:opacity-50"
                   />
                 </div>
                 <div>
-                  <label className="block text-xs mb-1 font-medium">Main URL (Required)</label>
+                  <label className="block text-xs mb-1 font-medium text-[#3B3B3B]">Main URL (Required)</label>
                   <input 
                     required
+                    disabled={isSubmitting}
                     type="text" 
                     value={newMainUrl}
                     onChange={(e) => setNewMainUrl(e.target.value)}
                     placeholder="https://..."
-                    className="w-full p-2 text-sm bg-white/60 rounded-lg focus:outline-none border border-white/20"
+                    className="w-full p-2 text-sm bg-white/60 rounded-lg focus:outline-none border border-white/20 text-[#3B3B3B] disabled:opacity-50"
                   />
                 </div>
                 <div>
-                  <label className="block text-xs mb-1 font-medium">External Workspaces URL</label>
+                  <label className="block text-xs mb-1 font-medium text-[#3B3B3B]">External Workspace URL</label>
                   <input 
                     type="text" 
+                    disabled={isSubmitting}
                     value={newExternalUrl}
                     onChange={(e) => setNewExternalUrl(e.target.value)}
                     placeholder="https://..."
-                    className="w-full p-2 text-sm bg-white/60 rounded-lg focus:outline-none border border-white/20"
+                    className="w-full p-2 text-sm bg-white/60 rounded-lg focus:outline-none border border-white/20 text-[#3B3B3B] disabled:opacity-50"
                   />
                 </div>
                 <button 
                   type="submit"
-                  className="w-full py-2 bg-[#6F6F6F] text-white rounded-lg hover:bg-opacity-90 transition-colors mt-4 text-sm font-bold"
+                  disabled={isSubmitting}
+                  className="w-full py-2 bg-[#6F6F6F] text-white rounded-lg hover:bg-opacity-90 transition-colors mt-4 text-sm font-bold disabled:opacity-50 flex items-center justify-center gap-2"
                 >
-                  Create App
+                  {isSubmitting ? (
+                    <>
+                      <div className="w-4 h-4 border-2 border-white/30 border-t-white rounded-full animate-spin" />
+                      Creating...
+                    </>
+                  ) : (editingAppId ? 'SAVE CHANGES' : 'CREATE APP')}
                 </button>
               </form>
             </div>
@@ -212,21 +329,21 @@ export default function App() {
         {selectedApp && (
           <Modal onClose={() => setStatusModalAppId(null)} glass={true} disableOutsideClick={true}>
             <div className="p-8 min-w-[300px] md:min-w-[500px] max-h-[80vh] overflow-y-auto custom-scrollbar">
-              <div className="mb-8 sticky top-0 bg-transparent backdrop-blur-sm z-10 py-2 -mt-2">
-                <h2 className="text-lg font-bold text-[#001F3F]">Current Status</h2>
+              <div className="mb-8 sticky top-0 bg-transparent z-10 py-2 -mt-2">
+                <h2 className="text-lg font-bold text-[#3B3B3B] uppercase">CURRENT STATUS</h2>
               </div>
               
               <div className="space-y-6">
                 {(['goal', 'status', 'next'] as const).map((field) => (
                   <div key={field}>
-                    <h3 className="text-xs mb-1 font-medium capitalize text-[#6F6F6F]">{field}</h3>
+                    <h3 className="text-xs mb-1 font-medium capitalize text-[#3B3B3B]">{field}</h3>
                     {editingField === field ? (
                       <div className="space-y-2">
                         <textarea 
                           autoFocus
                           value={editValue}
                           onChange={(e) => setEditValue(e.target.value)}
-                          className="w-full p-3 text-sm bg-white/60 rounded-lg focus:outline-none border border-white/20 min-h-[150px] resize-y custom-scrollbar"
+                          className="w-full p-3 text-sm bg-white/60 rounded-lg focus:outline-none border border-white/20 min-h-[150px] resize-y custom-scrollbar text-[#3B3B3B]"
                           onKeyDown={(e) => {
                             if (e.key === 'Escape') setEditingField(null);
                           }}
@@ -254,9 +371,9 @@ export default function App() {
                           setEditValue(selectedApp.status[field]);
                         }}
                       >
-                        <p className="text-gray-600 font-normal text-sm whitespace-pre-wrap flex-1">{selectedApp.status[field]}</p>
+                        <p className="text-[#3B3B3B] font-normal text-sm whitespace-pre-wrap flex-1">{selectedApp.status[field]}</p>
                         <button 
-                          className="text-[10px] text-gray-400 hover:text-[#001F3F] ml-4 opacity-0 group-hover:opacity-100 transition-opacity"
+                          className="text-[10px] text-gray-400 hover:text-[#3B3B3B] ml-4 opacity-0 group-hover:opacity-100 transition-opacity"
                         >
                           Edit
                         </button>
@@ -277,84 +394,121 @@ interface AppCardProps {
   app: AppItem;
   onDelete: () => void;
   onShowStatus: () => void;
+  onEdit: () => void;
 }
 
-const AppCard: React.FC<AppCardProps> = ({ app, onDelete, onShowStatus }) => {
+const AppCard: React.FC<AppCardProps> = ({ app, onDelete, onShowStatus, onEdit }) => {
   const [isHovered, setIsHovered] = useState(false);
 
-  const menuItems = [
-    { label: 'Current Status', onClick: onShowStatus },
-    { 
-      label: 'External Workspaces', 
-      onClick: () => app.externalUrl && window.open(app.externalUrl, '_blank'),
-      disabled: !app.externalUrl 
-    },
-    { label: 'Delete', onClick: onDelete, className: 'text-red-500' },
-  ];
-
   return (
-    <div className="flex flex-col items-center gap-2 relative w-16">
-      <div className="h-8 flex items-end justify-center w-full">
-        <span className="text-[10px] text-gray-400 font-normal w-full text-center break-words leading-tight">
+    <motion.div 
+      layout
+      initial={{ opacity: 0 }}
+      animate={{ 
+        opacity: 1,
+        width: isHovered ? 180 : 80 
+      }}
+      exit={{ 
+        opacity: 0,
+        scale: 0.95,
+        transition: { duration: 0.2 }
+      }}
+      transition={{
+        width: { 
+          delay: isHovered ? 0 : 0.25, 
+          duration: 0.3, 
+          ease: "circOut" 
+        },
+        layout: {
+          duration: 0.3,
+          ease: "easeInOut"
+        }
+      }}
+      className="flex flex-col items-center gap-6 shrink-0"
+    >
+      <div className="h-10 flex items-end justify-center w-20">
+        <span className="text-[10px] text-[#3B3B3B] font-light w-full text-center break-words leading-tight tracking-widest uppercase px-1">
           {app.name}
         </span>
       </div>
-      <div 
-        className="relative w-12 h-12"
-        onMouseEnter={() => setIsHovered(true)}
-        onMouseLeave={() => setIsHovered(false)}
-      >
-        <button 
-          onClick={() => window.open(app.mainUrl, '_blank')}
-          className="w-full h-full neumorph-card rounded-xl flex items-center justify-center hover:neumorph-inset transition-all text-lg font-bold text-[#001F3F]"
+      
+      <div className="relative w-full flex justify-center">
+        <motion.div 
+          onMouseEnter={() => setIsHovered(true)}
+          onMouseLeave={() => setIsHovered(false)}
+          animate={{ 
+            height: isHovered ? 220 : 48,
+            width: isHovered ? 180 : 48,
+          }}
+          transition={{
+            height: { 
+              delay: isHovered ? 0.25 : 0, 
+              duration: 0.3, 
+              ease: "circOut" 
+            },
+            width: { 
+              delay: isHovered ? 0 : 0.25, 
+              duration: 0.3, 
+              ease: "circOut" 
+            }
+          }}
+          className="flex flex-col neumorph-card rounded-xl p-0 overflow-hidden"
         >
-          {app.name.charAt(0).toUpperCase()}
-        </button>
+          <div className="flex items-center w-full h-12 shrink-0">
+            <button 
+              onClick={() => window.open(app.mainUrl, '_blank')}
+              className="w-12 h-12 flex items-center justify-center hover:bg-black/5 transition-all text-lg font-bold text-[#3B3B3B] shrink-0"
+            >
+              {app.name.charAt(0).toUpperCase()}
+            </button>
+          </div>
 
-        {/* Hover Menu */}
-        <AnimatePresence>
-          {isHovered && (
-            <>
-              {/* Connector Line & Dot */}
-              <motion.div 
-                initial={{ height: 0 }}
-                animate={{ height: 12 }}
-                exit={{ height: 0 }}
-                className="absolute top-full left-1/2 -translate-x-1/2 w-[1px] bg-[#001F3F] origin-top z-10"
-              >
-                <div className="absolute top-0 left-1/2 -translate-x-1/2 -translate-y-1/2 w-1.5 h-1.5 bg-[#001F3F] rounded-full" />
-              </motion.div>
-
-              <motion.div 
-                initial={{ opacity: 0, y: 5 }}
-                animate={{ opacity: 1, y: 0 }}
-                exit={{ opacity: 0, y: 5 }}
-                className="absolute top-full left-1/2 -translate-x-1/2 w-40 bg-white border border-[#001F3F] mt-3 rounded-lg shadow-xl z-20 overflow-hidden"
-              >
-                <div className="flex flex-col">
-                  {menuItems.map((item, index) => (
-                    <motion.button
-                      key={item.label}
-                      initial={{ opacity: 0, x: -5 }}
-                      animate={{ opacity: 1, x: 0 }}
-                      transition={{ delay: index * 0.05 }}
-                      disabled={item.disabled}
-                      onClick={(e) => {
-                        e.stopPropagation();
-                        item.onClick();
-                      }}
-                      className={`p-2 text-left hover:bg-gray-50 text-[11px] transition-colors border-b last:border-b-0 border-gray-100 ${item.className || ''} ${item.disabled ? 'opacity-30 cursor-not-allowed' : ''}`}
+          <div className="flex-1 overflow-hidden">
+            <AnimatePresence>
+              {isHovered && (
+                <motion.div 
+                  initial={{ opacity: 0 }}
+                  animate={{ opacity: 1 }}
+                  exit={{ opacity: 0 }}
+                  transition={{ 
+                    delay: 0.3,
+                    duration: 0.2 
+                  }}
+                  className="flex flex-col items-stretch border-t border-gray-200/50 w-full bg-white/5"
+                >
+                  <button 
+                    onClick={(e) => { e.stopPropagation(); onShowStatus(); }}
+                    className="w-full py-3 px-4 text-[9px] text-[#3B3B3B] font-light tracking-widest hover:bg-black/5 transition-all uppercase text-left border-b border-gray-100/50"
+                  >
+                    Current Status
+                  </button>
+                  {app.externalUrl && (
+                    <button 
+                      onClick={(e) => { e.stopPropagation(); window.open(app.externalUrl, '_blank'); }}
+                      className="w-full py-3 px-4 text-[9px] text-[#3B3B3B] font-light tracking-widest hover:bg-black/5 transition-all uppercase text-left border-b border-gray-100/50"
                     >
-                      {item.label}
-                    </motion.button>
-                  ))}
-                </div>
-              </motion.div>
-            </>
-          )}
-        </AnimatePresence>
+                      External Workspace
+                    </button>
+                  )}
+                  <button 
+                    onClick={(e) => { e.stopPropagation(); onEdit(); }}
+                    className="w-full py-3 px-4 text-[9px] text-[#3B3B3B] font-light tracking-widest hover:bg-black/5 transition-all uppercase text-left border-b border-gray-100/50"
+                  >
+                    Edit Details
+                  </button>
+                  <button 
+                    onClick={(e) => { e.stopPropagation(); onDelete(); }}
+                    className="w-full py-3 px-4 text-[9px] text-[#3B3B3B] font-light tracking-widest hover:bg-black/5 transition-all uppercase text-left"
+                  >
+                    Delete
+                  </button>
+                </motion.div>
+              )}
+            </AnimatePresence>
+          </div>
+        </motion.div>
       </div>
-    </div>
+    </motion.div>
   );
 };
 
@@ -396,7 +550,7 @@ const Modal: React.FC<ModalProps> = ({ children, onClose, glass, disableOutsideC
         initial={{ scale: 0.98, opacity: 0, y: 10 }}
         animate={{ scale: 1, opacity: 1, y: 0 }}
         exit={{ scale: 0.98, opacity: 0, y: 10 }}
-        className={`${glass ? 'glass-panel' : 'bg-white border border-[#001F3F]'} rounded-2xl shadow-2xl max-w-2xl w-full relative overflow-hidden`}
+        className={`${glass ? 'glass-panel' : 'bg-white border border-[#3B3B3B]'} rounded-2xl shadow-2xl max-w-2xl w-full relative overflow-hidden`}
       >
         <button 
           onClick={onClose}

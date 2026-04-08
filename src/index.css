@@ -39,10 +39,10 @@ body {
 }
 
 .custom-scrollbar::-webkit-scrollbar-thumb {
-  background: rgba(0, 31, 63, 0.1);
+  background: rgba(59, 59, 59, 0.2);
   border-radius: 10px;
 }
 
 .custom-scrollbar::-webkit-scrollbar-thumb:hover {
-  background: rgba(0, 31, 63, 0.2);
+  background: rgba(59, 59, 59, 0.4);
 }
