@@ -1,5 +1,5 @@
 import React, { useState, useEffect, useRef } from 'react';
-import { Plus, X, LogIn, LogOut } from 'lucide-react';
+import { Plus, X } from 'lucide-react';
 import { motion, AnimatePresence } from 'motion/react';
 import { 
   collection, 
@@ -13,8 +13,8 @@ import {
   serverTimestamp,
   getDocFromServer
 } from 'firebase/firestore';
-import { onAuthStateChanged, User, signOut } from 'firebase/auth';
-import { db, auth, signIn, handleFirestoreError, OperationType } from './firebase';
+import { onAuthStateChanged, User } from 'firebase/auth';
+import { db, auth, handleFirestoreError, OperationType } from './firebase';
 
 interface AppStatus {
   goal: string;
@@ -172,33 +172,6 @@ export default function App() {
 
   return (
     <div className="min-h-screen bg-[#EEEEEE] p-8 font-pretendard text-[#6F6F6F] relative">
-      {/* Auth Button */}
-      <div className="absolute top-4 right-4 z-20">
-        {user ? (
-          <div className="flex items-center gap-3 bg-white/40 backdrop-blur-sm p-1.5 pr-3 rounded-full border border-white/20 shadow-sm">
-            {user.photoURL && (
-              <img src={user.photoURL} alt={user.displayName || ''} className="w-7 h-7 rounded-full shadow-inner" referrerPolicy="no-referrer" />
-            )}
-            <span className="text-[10px] font-medium text-[#3B3B3B] hidden md:block">{user.displayName}</span>
-            <button 
-              onClick={() => signOut(auth)}
-              className="p-1.5 hover:bg-black/5 rounded-full transition-colors text-gray-500"
-              title="Sign Out"
-            >
-              <LogOut className="w-3.5 h-3.5" />
-            </button>
-          </div>
-        ) : (
-          <button 
-            onClick={signIn}
-            className="flex items-center gap-2 bg-white/40 backdrop-blur-sm px-4 py-2 rounded-full border border-white/20 shadow-sm hover:bg-white/60 transition-all text-xs font-medium text-[#3B3B3B]"
-          >
-            <LogIn className="w-3.5 h-3.5" />
-            Sign In
-          </button>
-        )}
-      </div>
-
       {/* Header */}
       <header className="max-w-4xl mx-auto mb-16 mt-8">
         <h1 className="text-2xl md:text-3xl text-center leading-tight font-nunito font-bold italic text-[#3B3B3B] inline-block w-full">
@@ -223,7 +196,7 @@ export default function App() {
           {/* Add Button Card inside AnimatePresence for layout sync */}
           <motion.div 
             key="add-button"
-            layout
+            layout="position"
             transition={{
               layout: {
                 duration: 0.3,
@@ -402,29 +375,24 @@ const AppCard: React.FC<AppCardProps> = ({ app, onDelete, onShowStatus, onEdit }
 
   return (
     <motion.div 
-      layout
+      layout="position"
       initial={{ opacity: 0 }}
       animate={{ 
         opacity: 1,
-        width: isHovered ? 180 : 80 
       }}
       exit={{ 
         opacity: 0,
-        scale: 0.95,
+        scale: 0.9,
         transition: { duration: 0.2 }
       }}
+      style={{ width: isHovered ? 180 : 80 }}
       transition={{
-        width: { 
-          delay: isHovered ? 0 : 0.25, 
-          duration: 0.3, 
-          ease: "circOut" 
-        },
         layout: {
           duration: 0.3,
           ease: "easeInOut"
         }
       }}
-      className="flex flex-col items-center gap-6 shrink-0"
+      className="flex flex-col items-center gap-6 shrink-0 transition-[width] duration-300 ease-out"
     >
       <div className="h-10 flex items-end justify-center w-20">
         <span className="text-[10px] text-[#3B3B3B] font-light w-full text-center break-words leading-tight tracking-widest uppercase px-1">
