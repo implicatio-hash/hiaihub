@@ -37,6 +37,13 @@ interface AppItem {
   order?: number;
 }
 
+const springTransition = {
+  type: "spring",
+  stiffness: 350,
+  damping: 30,
+  mass: 1
+};
+
 export default function App() {
   const [apps, setApps] = useState<AppItem[]>([]);
   const [user, setUser] = useState<User | null>(null);
@@ -268,7 +275,10 @@ export default function App() {
 
             {/* Add Button Card */}
             <motion.div 
-              layout
+              layout="position"
+              transition={springTransition}
+              initial={{ opacity: 0 }}
+              animate={{ opacity: 1 }}
               className="flex flex-col items-center gap-6 w-20 shrink-0"
             >
               <div className="h-10 flex items-end justify-center w-full">
@@ -456,7 +466,7 @@ const AppCard: React.FC<AppCardProps> = ({ app, onDelete, onShowStatus, onEdit, 
 
   return (
     <motion.div 
-      layout
+      layout="position"
       data-drag-id={app.id}
       drag
       dragControls={dragControls}
@@ -476,16 +486,11 @@ const AppCard: React.FC<AppCardProps> = ({ app, onDelete, onShowStatus, onEdit, 
       }}
       exit={{ 
         opacity: 0,
-        scale: 0.9,
+        scale: 0.8,
         transition: { duration: 0.2 }
       }}
       style={{ width: isExpanded ? 180 : 80 }}
-      transition={{
-        layout: {
-          duration: 0.3,
-          ease: "easeInOut"
-        }
-      }}
+      transition={springTransition}
       className="flex flex-col items-center gap-6 shrink-0 transition-[width] duration-300 ease-out relative"
       ref={cardRef}
     >
