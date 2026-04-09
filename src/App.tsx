@@ -180,6 +180,7 @@ export default function App() {
   };
 
   const handleUpdateStatus = async (id: string, field: keyof AppStatus, value: string) => {
+    if (!id) return;
     try {
       const appRef = doc(db, 'apps', id);
       await updateDoc(appRef, {
@@ -276,7 +277,7 @@ export default function App() {
 
       {/* App Grid */}
       <div className="flex justify-center w-full overflow-x-auto custom-scrollbar pb-12">
-        <div className="flex flex-wrap gap-x-6 gap-y-12 justify-center min-w-fit px-8">
+        <div className="flex flex-wrap gap-x-6 gap-y-4 justify-center min-w-fit px-8">
           <AnimatePresence initial={false}>
             {apps.map((app, index) => (
               <React.Fragment key={app.id}>
@@ -418,40 +419,42 @@ export default function App() {
                           autoFocus
                           value={editValue}
                           onChange={(e) => setEditValue(e.target.value)}
+                          onBlur={() => {
+                            if (selectedApp && editValue !== selectedApp.status[field]) {
+                              handleUpdateStatus(selectedApp.id, field, editValue);
+                            } else {
+                              setEditingField(null);
+                            }
+                          }}
                           className="w-full p-3 text-sm bg-white/60 rounded-lg focus:outline-none border border-white/20 min-h-[150px] resize-y custom-scrollbar text-[#3B3B3B]"
                           onKeyDown={(e) => {
                             if (e.key === 'Escape') setEditingField(null);
                           }}
                         />
                         <div className="flex justify-end gap-2">
-                          <button 
-                            onClick={() => setEditingField(null)}
-                            className="text-xs text-gray-400 hover:underline"
-                          >
-                            Cancel
-                          </button>
-                          <button 
-                            onClick={() => handleUpdateStatus(selectedApp.id, field, editValue)}
-                            className="text-xs text-[#20A200] font-bold hover:underline"
-                          >
-                            Save
-                          </button>
+                          <p className="text-[10px] text-gray-400 italic">Auto-saving...</p>
                         </div>
                       </div>
                     ) : (
                       <div 
-                        className="flex items-start justify-between group bg-white/60 rounded-lg p-2 border border-white/10 cursor-pointer hover:bg-white/80 transition-colors"
-                        onClick={() => {
+                        className={`flex items-start justify-between group bg-white/60 rounded-lg p-2 border border-white/10 transition-colors ${isAdmin ? 'cursor-pointer hover:bg-white/80' : 'cursor-default'}`}
+                        onClick={async () => {
+                          if (!isAdmin) return;
+                          if (editingField && selectedApp && editValue !== selectedApp.status[editingField]) {
+                            await handleUpdateStatus(selectedApp.id, editingField, editValue);
+                          }
                           setEditingField(field);
                           setEditValue(selectedApp.status[field]);
                         }}
                       >
                         <p className="text-[#3B3B3B] font-normal text-sm whitespace-pre-wrap flex-1">{selectedApp.status[field]}</p>
-                        <button 
-                          className="text-[10px] text-gray-400 hover:text-[#3B3B3B] ml-4 opacity-0 group-hover:opacity-100 transition-opacity"
-                        >
-                          Edit
-                        </button>
+                        {isAdmin && (
+                          <button 
+                            className="text-[10px] text-gray-400 hover:text-[#3B3B3B] ml-4 opacity-0 group-hover:opacity-100 transition-opacity"
+                          >
+                            Edit
+                          </button>
+                        )}
                       </div>
                     )}
                   </div>
@@ -524,7 +527,7 @@ const AppCard: React.FC<AppCardProps> = ({ app, isAdmin, onDelete, onShowStatus,
           ease: "circOut" 
         }
       }}
-      className="flex flex-col items-center gap-6 shrink-0 relative"
+      className="flex flex-col items-center gap-3 shrink-0 relative"
       ref={cardRef}
     >
       <div 
@@ -567,7 +570,7 @@ const AppCard: React.FC<AppCardProps> = ({ app, isAdmin, onDelete, onShowStatus,
                 <motion.span
                   layout="position"
                   className={`font-bold text-[#3B3B3B] tracking-widest transition-all duration-300 ${
-                    isExpanded ? 'text-[13px]' : 'text-lg'
+                    isExpanded ? 'text-[12px]' : 'text-lg'
                   }`}
                 >
                   {app.name.charAt(0).toUpperCase()}
@@ -584,7 +587,7 @@ const AppCard: React.FC<AppCardProps> = ({ app, isAdmin, onDelete, onShowStatus,
                         duration: 0.25, 
                         ease: "easeInOut"
                       }}
-                      className="font-bold text-[#3B3B3B] text-[13px] tracking-widest overflow-hidden"
+                      className="font-bold text-[#3B3B3B] text-[12px] tracking-widest overflow-hidden"
                     >
                       {app.name.slice(1).toUpperCase()}
                     </motion.span>
@@ -621,16 +624,16 @@ const AppCard: React.FC<AppCardProps> = ({ app, isAdmin, onDelete, onShowStatus,
                 >
                   Current Status
                 </button>
+                {app.externalUrl && (
+                  <button 
+                    onClick={(e) => { e.stopPropagation(); window.open(app.externalUrl, '_blank'); }}
+                    className="w-full py-3 px-4 text-[9px] text-[#3B3B3B] font-normal tracking-widest hover:bg-black/5 transition-all uppercase text-left border-b border-gray-100/50"
+                  >
+                    External Workspace
+                  </button>
+                )}
                 {isAdmin && (
                   <>
-                    {app.externalUrl && (
-                      <button 
-                        onClick={(e) => { e.stopPropagation(); window.open(app.externalUrl, '_blank'); }}
-                        className="w-full py-3 px-4 text-[9px] text-[#3B3B3B] font-normal tracking-widest hover:bg-black/5 transition-all uppercase text-left border-b border-gray-100/50"
-                      >
-                        External Workspace
-                      </button>
-                    )}
                     <button 
                       onClick={(e) => { e.stopPropagation(); onEdit(); }}
                       className="w-full py-3 px-4 text-[9px] text-[#3B3B3B] font-normal tracking-widest hover:bg-black/5 transition-all uppercase text-left border-b border-gray-100/50"
