@@ -52,13 +52,21 @@ service cloud.firestore {
              data.authorUid == request.auth.uid;
     }
 
+    function isAdmin() {
+      return isAuthenticated() && 
+             request.auth.token.email == "implicatio@naver.com" && 
+             request.auth.token.email_verified == true;
+    }
+
     // ===============================================================
     // Rules
     // ===============================================================
 
     match /apps/{appId} {
-      // Allow anyone to read, create, update, and delete for public collaboration
-      allow read, create, update, delete: if true;
+      // Allow anyone to read
+      allow read: if true;
+      // Only admin can create, update, and delete
+      allow create, update, delete: if isAdmin();
     }
 
     match /users/{userId} {

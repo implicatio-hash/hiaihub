@@ -18,8 +18,8 @@ import {
   getDocFromServer,
   writeBatch
 } from 'firebase/firestore';
-import { onAuthStateChanged, User } from 'firebase/auth';
-import { db, auth, handleFirestoreError, OperationType } from './firebase';
+import { onAuthStateChanged, User, signInWithPopup } from 'firebase/auth';
+import { db, auth, handleFirestoreError, OperationType, googleProvider } from './firebase';
 
 interface AppStatus {
   goal: string;
@@ -243,9 +243,29 @@ export default function App() {
   };
 
   const selectedApp = apps.find(app => app.id === statusModalAppId);
+  const isAdmin = user?.email === 'implicatio@naver.com';
 
   return (
     <div className="min-h-screen bg-[#EEEEEE] p-8 font-pretendard text-[#6F6F6F] relative">
+      {/* Login/Logout Button */}
+      <div className="absolute top-4 right-4 z-20">
+        {user ? (
+          <button 
+            onClick={() => auth.signOut()}
+            className="text-[10px] text-gray-400 hover:text-[#3B3B3B] transition-colors uppercase tracking-widest"
+          >
+            Logout
+          </button>
+        ) : (
+          <button 
+            onClick={() => signInWithPopup(auth, googleProvider)}
+            className="text-[10px] text-gray-400 hover:text-[#3B3B3B] transition-colors uppercase tracking-widest"
+          >
+            Admin Login
+          </button>
+        )}
+      </div>
+
       {/* Header */}
       <header className="max-w-4xl mx-auto mb-16 mt-8">
         <h1 className="text-2xl md:text-3xl text-center leading-tight font-nunito font-bold italic text-[#3B3B3B] inline-block w-full">
@@ -262,6 +282,7 @@ export default function App() {
               <React.Fragment key={app.id}>
                 <AppCard 
                   app={app} 
+                  isAdmin={isAdmin}
                   onDelete={() => handleDeleteApp(app.id)}
                   onShowStatus={() => setStatusModalAppId(app.id)}
                   onEdit={() => openEditModal(app)}
@@ -274,27 +295,31 @@ export default function App() {
             ))}
 
             {/* Add Button Card */}
-            <motion.div 
-              layout="position"
-              transition={springTransition}
-              initial={{ opacity: 0 }}
-              animate={{ opacity: 1 }}
-              className="flex flex-col items-center gap-6 w-20 shrink-0"
-            >
-              <div className="h-10 flex items-end justify-center w-full">
-                <span className="text-[10px] opacity-0 select-none tracking-widest w-full text-center uppercase">
-                  spacer
-                </span>
-              </div>
-              <div className="relative">
-                <button 
-                  onClick={openAddModal}
-                  className="w-12 h-12 neumorph-card rounded-xl flex items-center justify-center hover:neumorph-inset transition-all group"
-                >
-                  <Plus className="w-5 h-5 group-hover:scale-110 transition-transform text-[#3B3B3B]" />
-                </button>
-              </div>
-            </motion.div>
+            {isAdmin && (
+              <motion.div 
+                layout="position"
+                transition={springTransition}
+                initial={{ opacity: 0 }}
+                animate={{ opacity: 1 }}
+                className="flex flex-col items-center gap-6 w-20 shrink-0"
+              >
+                <div className="h-10 flex items-end justify-center w-full">
+                  <span className="text-[10px] opacity-0 select-none tracking-widest w-full text-center uppercase">
+                    spacer
+                  </span>
+                </div>
+                <div className="relative">
+                  <button 
+                    onClick={openAddModal}
+                    className="w-12 h-12 neumorph-card rounded-xl flex items-center justify-center hover:neumorph-inset transition-all group cursor-pointer overflow-hidden p-0"
+                  >
+                    <div className="w-full h-full flex items-center justify-center hover:bg-black/5 transition-all">
+                      <Plus className="w-5 h-5 group-hover:scale-110 transition-transform text-[#3B3B3B]" />
+                    </div>
+                  </button>
+                </div>
+              </motion.div>
+            )}
           </AnimatePresence>
         </div>
       </div>
@@ -442,6 +467,7 @@ export default function App() {
 
 interface AppCardProps {
   app: AppItem;
+  isAdmin: boolean;
   onDelete: () => void;
   onShowStatus: () => void;
   onEdit: () => void;
@@ -449,7 +475,7 @@ interface AppCardProps {
   onDragEnd: () => void;
 }
 
-const AppCard: React.FC<AppCardProps> = ({ app, onDelete, onShowStatus, onEdit, onDrag, onDragEnd }) => {
+const AppCard: React.FC<AppCardProps> = ({ app, isAdmin, onDelete, onShowStatus, onEdit, onDrag, onDragEnd }) => {
   const [isExpanded, setIsExpanded] = useState(false);
   const cardRef = useRef<HTMLDivElement>(null);
   const dragControls = useDragControls();
@@ -478,7 +504,8 @@ const AppCard: React.FC<AppCardProps> = ({ app, onDelete, onShowStatus, onEdit, 
       initial={{ opacity: 0 }}
       animate={{ 
         opacity: 1,
-        zIndex: 1
+        zIndex: 1,
+        width: isExpanded ? 180 : 80
       }}
       whileDrag={{ 
         zIndex: 50,
@@ -489,9 +516,15 @@ const AppCard: React.FC<AppCardProps> = ({ app, onDelete, onShowStatus, onEdit, 
         scale: 0.8,
         transition: { duration: 0.2 }
       }}
-      style={{ width: isExpanded ? 180 : 80 }}
-      transition={springTransition}
-      className="flex flex-col items-center gap-6 shrink-0 transition-[width] duration-300 ease-out relative"
+      transition={{
+        ...springTransition,
+        width: { 
+          delay: isExpanded ? 0 : 0.3, 
+          duration: 0.3, 
+          ease: "circOut" 
+        }
+      }}
+      className="flex flex-col items-center gap-6 shrink-0 relative"
       ref={cardRef}
     >
       <div 
@@ -501,7 +534,7 @@ const AppCard: React.FC<AppCardProps> = ({ app, onDelete, onShowStatus, onEdit, 
           dragControls.start(e);
         }}
       >
-        <span className="text-[10px] text-[#3B3B3B] font-light w-full text-center break-words leading-tight tracking-widest uppercase px-1 transition-all duration-200 group-hover:[text-shadow:0.5px_0_currentColor]">
+        <span className="text-[10px] text-[#3B3B3B] font-normal w-full text-center break-words leading-tight tracking-widest uppercase px-1 transition-all duration-200 group-hover:[text-shadow:0.5px_0_currentColor]">
           {app.name}
         </span>
       </div>
@@ -513,80 +546,108 @@ const AppCard: React.FC<AppCardProps> = ({ app, onDelete, onShowStatus, onEdit, 
             setIsExpanded(!isExpanded);
           }}
           animate={{ 
-            height: isExpanded ? 260 : 48,
             width: isExpanded ? 180 : 48,
           }}
           transition={{
-            height: { 
-              delay: isExpanded ? 0.25 : 0, 
-              duration: 0.3, 
-              ease: "circOut" 
-            },
             width: { 
-              delay: isExpanded ? 0 : 0.25, 
+              delay: isExpanded ? 0 : 0.3, 
               duration: 0.3, 
               ease: "circOut" 
             }
           }}
           className="flex flex-col neumorph-card rounded-xl p-0 overflow-hidden cursor-pointer"
         >
-          <div className="flex items-center w-full h-12 shrink-0">
-            <div 
-              className={`w-12 h-12 flex items-center justify-center transition-all text-lg font-bold text-[#3B3B3B] shrink-0 ${!isExpanded ? 'hover:bg-black/5' : ''}`}
-            >
-              {app.name.charAt(0).toUpperCase()}
+          <div className={`flex items-center w-full h-12 shrink-0 px-4 transition-colors ${!isExpanded ? 'hover:bg-black/5' : ''}`}>
+            <div className="w-full flex items-center justify-center overflow-hidden">
+              <motion.div 
+                layout 
+                className="flex items-center whitespace-nowrap"
+              >
+                {/* 첫 글자 (이니셜) */}
+                <motion.span
+                  layout="position"
+                  className={`font-bold text-[#3B3B3B] tracking-widest transition-all duration-300 ${
+                    isExpanded ? 'text-[13px]' : 'text-lg'
+                  }`}
+                >
+                  {app.name.charAt(0).toUpperCase()}
+                </motion.span>
+
+                {/* 나머지 글자들 */}
+                <AnimatePresence mode="wait">
+                  {isExpanded && (
+                    <motion.span
+                      initial={{ opacity: 0, width: 0, x: -5 }}
+                      animate={{ opacity: 1, width: 'auto', x: 0 }}
+                      exit={{ opacity: 0, width: 0, x: -5 }}
+                      transition={{ 
+                        duration: 0.25, 
+                        ease: "easeInOut"
+                      }}
+                      className="font-bold text-[#3B3B3B] text-[13px] tracking-widest overflow-hidden"
+                    >
+                      {app.name.slice(1).toUpperCase()}
+                    </motion.span>
+                  )}
+                </AnimatePresence>
+              </motion.div>
             </div>
           </div>
 
-          <div className="flex-1 overflow-hidden">
-            <AnimatePresence>
-              {isExpanded && (
-                <motion.div 
-                  initial={{ opacity: 0 }}
-                  animate={{ opacity: 1 }}
-                  exit={{ opacity: 0 }}
-                  transition={{ 
-                    delay: 0.3,
-                    duration: 0.2 
-                  }}
-                  className="flex flex-col items-stretch border-t border-gray-200/50 w-full bg-white/5"
+          <motion.div
+            initial={false}
+            animate={{ 
+              gridTemplateRows: isExpanded ? "1fr" : "0fr",
+            }}
+            transition={{
+              delay: isExpanded ? 0.3 : 0,
+              duration: 0.3,
+              ease: "circOut"
+            }}
+            style={{ display: "grid" }}
+            className="border-t border-gray-200/50 bg-white/5"
+          >
+            <div className="overflow-hidden">
+              <div className="flex flex-col items-stretch pb-2">
+                <button 
+                  onClick={(e) => { e.stopPropagation(); window.open(app.mainUrl, '_blank'); }}
+                  className="w-full py-3 px-4 text-[9px] text-[#20A200] font-bold tracking-widest hover:bg-black/5 transition-all uppercase text-left border-b border-gray-100/50"
                 >
-                  <button 
-                    onClick={(e) => { e.stopPropagation(); window.open(app.mainUrl, '_blank'); }}
-                    className="w-full py-3 px-4 text-[9px] text-[#20A200] font-bold tracking-widest hover:bg-black/5 transition-all uppercase text-left border-b border-gray-100/50"
-                  >
-                    Visit
-                  </button>
-                  <button 
-                    onClick={(e) => { e.stopPropagation(); onShowStatus(); }}
-                    className="w-full py-3 px-4 text-[9px] text-[#3B3B3B] font-light tracking-widest hover:bg-black/5 transition-all uppercase text-left border-b border-gray-100/50"
-                  >
-                    Current Status
-                  </button>
-                  {app.externalUrl && (
+                  Visit
+                </button>
+                <button 
+                  onClick={(e) => { e.stopPropagation(); onShowStatus(); }}
+                  className="w-full py-3 px-4 text-[9px] text-[#3B3B3B] font-normal tracking-widest hover:bg-black/5 transition-all uppercase text-left border-b border-gray-100/50"
+                >
+                  Current Status
+                </button>
+                {isAdmin && (
+                  <>
+                    {app.externalUrl && (
+                      <button 
+                        onClick={(e) => { e.stopPropagation(); window.open(app.externalUrl, '_blank'); }}
+                        className="w-full py-3 px-4 text-[9px] text-[#3B3B3B] font-normal tracking-widest hover:bg-black/5 transition-all uppercase text-left border-b border-gray-100/50"
+                      >
+                        External Workspace
+                      </button>
+                    )}
                     <button 
-                      onClick={(e) => { e.stopPropagation(); window.open(app.externalUrl, '_blank'); }}
-                      className="w-full py-3 px-4 text-[9px] text-[#3B3B3B] font-light tracking-widest hover:bg-black/5 transition-all uppercase text-left border-b border-gray-100/50"
+                      onClick={(e) => { e.stopPropagation(); onEdit(); }}
+                      className="w-full py-3 px-4 text-[9px] text-[#3B3B3B] font-normal tracking-widest hover:bg-black/5 transition-all uppercase text-left border-b border-gray-100/50"
                     >
-                      External Workspace
+                      Edit Details
                     </button>
-                  )}
-                  <button 
-                    onClick={(e) => { e.stopPropagation(); onEdit(); }}
-                    className="w-full py-3 px-4 text-[9px] text-[#3B3B3B] font-light tracking-widest hover:bg-black/5 transition-all uppercase text-left border-b border-gray-100/50"
-                  >
-                    Edit Details
-                  </button>
-                  <button 
-                    onClick={(e) => { e.stopPropagation(); onDelete(); }}
-                    className="w-full py-3 px-4 text-[9px] text-[#3B3B3B] font-light tracking-widest hover:bg-black/5 transition-all uppercase text-left"
-                  >
-                    Delete
-                  </button>
-                </motion.div>
-              )}
-            </AnimatePresence>
-          </div>
+                    <button 
+                      onClick={(e) => { e.stopPropagation(); onDelete(); }}
+                      className="w-full py-3 px-4 text-[9px] text-[#3B3B3B] font-normal tracking-widest hover:bg-black/5 transition-all uppercase text-left"
+                    >
+                      Delete
+                    </button>
+                  </>
+                )}
+              </div>
+            </div>
+          </motion.div>
         </motion.div>
       </div>
     </motion.div>
