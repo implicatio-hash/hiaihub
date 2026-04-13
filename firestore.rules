@@ -54,8 +54,8 @@ service cloud.firestore {
 
     function isAdmin() {
       return isAuthenticated() && 
-             request.auth.token.email == "implicatio@naver.com" && 
-             request.auth.token.email_verified == true;
+             request.auth.token.email_verified == true &&
+             (request.auth.token.email == "implicatio@naver.com" || request.auth.token.email == "gusn2601@gmail.com");
     }
 
     // ===============================================================

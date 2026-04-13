@@ -244,7 +244,7 @@ export default function App() {
   };
 
   const selectedApp = apps.find(app => app.id === statusModalAppId);
-  const isAdmin = user?.email === 'implicatio@naver.com';
+  const isAdmin = user?.email === 'implicatio@naver.com' || user?.email === 'gusn2601@gmail.com';
 
   return (
     <div className="min-h-screen bg-[#EEEEEE] p-8 font-pretendard text-[#6F6F6F] relative">
