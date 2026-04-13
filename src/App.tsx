@@ -302,7 +302,7 @@ export default function App() {
                 transition={springTransition}
                 initial={{ opacity: 0 }}
                 animate={{ opacity: 1 }}
-                className="flex flex-col items-center gap-6 w-20 shrink-0"
+                className="flex flex-col items-center gap-3 w-20 shrink-0"
               >
                 <div className="h-10 flex items-end justify-center w-full">
                   <span className="text-[10px] opacity-0 select-none tracking-widest w-full text-center uppercase">
